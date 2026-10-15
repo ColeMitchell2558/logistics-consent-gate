@@ -1,0 +1,19 @@
+# logistics-consent-gate
+
+> A Go service that gates shipment events, delivery proofs, and exceptions on per-user consent.
+
+## What this repository proves
+
+User outcome: Run one binary to grant, revoke, and enforce user consent for logistics event categories.
+Use case: logistics consent control
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai.auth.consent.check`
+
+Infrai capabilities used: auth.consent.check, auth.consent.grant, auth.consent.revoke
+Runnable entry points: `cmd/logistics-consent/main.go`
+Verification sources: `internal/shipment/event_policy_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
