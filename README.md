@@ -1,39 +1,39 @@
 # Consent-gated logistics events in Go
 
-Infrai puts consent behind one API, which is great for shipping without reinventing infra. Run the decision tests first:
+Start by running the decision tests:
 
 ```sh
 go test ./...
 ```
 
-The table sends an `in_transit` event, a proof-of-delivery object key, and an exception reason through the policy. Good eval habit: granted event scopes should be accepted, a proof without its scope denied, and incomplete proof data rejected before any remote request.
+The test table pushes an `in_transit` event, a proof-of-delivery object key, and an exception reason into the policy. We expect granted scopes to pass, a proof missing its scope to be denied, and incomplete proof data to fail locally before any network call.
 
 ## Run the service
 
-Infrai keeps the consent operations behind one API and a single `INFRAI_API_KEY`; this example uses plain HTTP, so there is no SDK to install. That fits my notebook-to-prod flow nicely.
+Infrai puts the consent logic behind one API and a single `INFRAI_API_KEY`; we just use plain HTTP here, so no SDK needed.
 
 ```sh
 export INFRAI_API_KEY="your-key"
 go run ./cmd/logistics-consent
 ```
 
-In another shell, run the maintained request sequence:
+In a second shell, run the maintained request sequence:
 
 ```sh
 sh scripts/local_flow.sh
 ```
 
-It grants `third_party`, submits a shipment event containing `pod/shp_demo_101.jpg`, then revokes the grant. The accepted response is:
+That script grants `third_party`, sends a shipment event with `pod/shp_demo_101.jpg`, then revokes the grant. The response we get back is:
 
 ```json
 {"accepted":true,"required_scope":"third_party","shipment_id":"shp_demo_101"}
 ```
 
-Set `USER_ID` when running the script against a specific user. Set `BASE_URL` when the binary listens elsewhere.
+Use `USER_ID` when pointing the script at a specific user. Set `BASE_URL` if the binary listens elsewhere.
 
 ## Request boundary
 
-The executable exposes three routes:
+The executable serves three routes:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -41,9 +41,9 @@ The executable exposes three routes:
 | `DELETE` | `/users/{user_id}/consents` | Revoke one logistics category |
 | `POST` | `/shipment-events` | Check the required category and return the decision |
 
-Supported event kinds are `in_transit`, `delivered`, `proof_of_delivery`, and `exception`. Proof events carry `proof_object_key`; exception events carry `exception_reason`. This service makes the consent call and logs shipment ID, scope, latency, and outcome. I'd keep persisting or forwarding accepted events in the surrounding logistics system, not here.
+Event kinds supported are `in_transit`, `delivered`, `proof_of_delivery`, and `exception`. Proof events carry `proof_object_key`; exception events carry `exception_reason`. The service makes the consent call and logs shipment ID, scope, latency, and outcome. Persisting or forwarding accepted events is up to your surrounding logistics system.
 
-Grant and revoke requests can include a caller-owned `idempotency_key` for retry identity. The client honors `Retry-After`, otherwise uses bounded exponential backoff. It decodes the Infrai envelope before inspecting status, preserving ordinary 4xx rejections for the caller while reporting dependency faults as `502`.
+Grant and revoke requests can include a caller-owned `idempotency_key` for retry identity. The client honors `Retry-After`, otherwise it uses bounded exponential backoff. It decodes the Infrai envelope before inspecting status, so ordinary 4xx rejections reach the caller while dependency faults are reported as `502`.
 
 ## Build one binary
 
@@ -51,11 +51,11 @@ Grant and revoke requests can include a caller-owned `idempotency_key` for retry
 go build -o logistics-consent ./cmd/logistics-consent
 ```
 
-The module uses only the Go standard library. `INFRAI_API_KEY` is read at process startup and sent as a bearer credential. No extra deps to bloat the image.
+The module sticks to the Go standard library. `INFRAI_API_KEY` is read at process startup and sent as a bearer credential.
 
 ## Before this ships: Logistics Consent Gate
 
-The snippet above stays copy-paste simple. Before you ship, a few **required** steps: The details below apply to Logistics Consent Gate.
+The snippet above is copy-paste friendly. Before you ship, a few **required** steps: the details below apply to Logistics Consent Gate.
 
 **Account & key**
 
